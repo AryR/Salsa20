@@ -17,11 +17,17 @@ namespace Salsa20
 			InitializeComponent();
 		}
 
-		private void TextBox1_KeyPress(object sender, KeyPressEventArgs e)
+		private void TextBox1_KeyPress(object sender, KeyEventArgs e)
 		{
 			string text = textBox1.Text;
 			string encrypted = Salsa20.EncryptText(text);
 			textBox2.Text = encrypted;
+			textBox3.Text = Salsa20.EncryptText(encrypted);
+		}
+
+		private void TextBox2_KeyUp(object sender, KeyEventArgs e)
+		{
+			string encrypted = textBox2.Text;
 			textBox3.Text = Salsa20.EncryptText(encrypted);
 		}
 	}
