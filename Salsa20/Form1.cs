@@ -12,39 +12,50 @@ namespace Salsa20
 {
     public partial class Form1 : Form
     {
-        Salsa20 salsa;
-
         public Form1()
         {
             InitializeComponent();
-            salsa = new Salsa20("aaaabbbbccccdddd", "iiiijjjj");
-            salsa.BytesEncripted += BytesEncripted;
-            salsa.BytesDecripted += BytesDecripted;
             CheckForIllegalCrossThreadCalls = false;
         }
 
-        private void originalTextBox_TextChanged(object sender, EventArgs e)
+        private void button1_Click(object sender, EventArgs e)
         {
-            char lastchar = originalTextBox.Text.ToCharArray()[originalTextBox.Text.Length - 1];
-            salsa.Encrypt((byte)lastchar);
+            OpenFileDialog openFileDialog1 = new OpenFileDialog
+            {
+                InitialDirectory = System.Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                Title = "Buscar Imagen",
+
+                CheckFileExists = true,
+                CheckPathExists = true,
+
+                DefaultExt = "png",
+                Filter = "JPG|*.jpg|JPEG|*.jpeg|PNG|*.png",
+                RestoreDirectory = true,
+
+                ReadOnlyChecked = true,
+                ShowReadOnly = true
+            };
+
+            if (openFileDialog1.ShowDialog() == DialogResult.OK)
+            {
+                textBox1.Text = openFileDialog1.FileName;
+            }
         }
 
-        private void BytesEncripted(object sender, byte[] e)
+        private void button2_Click(object sender, EventArgs e)
         {
-            try
-            {
-                encryptedTextBox.Text += Encoding.ASCII.GetString(e);
-                salsa.Decrypt(e);
-            }
-            catch(Exception ex)
-            {
-                int a = 0;
-            }
+            if (Salsa20.EncryptFile(textBox1.Text))
+                MessageBox.Show("Se guardo la imagen encriptada.");
+            else
+                MessageBox.Show("No se pudo encriptar la imagen.");
         }
 
-        private void BytesDecripted(object sender, byte[] e)
+        private void button3_Click(object sender, EventArgs e)
         {
-            decryptedTextBox.Text += Encoding.ASCII.GetString(e);
+            if (Salsa20.DecryptFile(textBox1.Text))
+                MessageBox.Show("Se guardo la imagen desencriptada.");
+            else
+                MessageBox.Show("No se pudo desencriptar la imagen.");
         }
     }
 }

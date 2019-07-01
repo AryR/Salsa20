@@ -1,68 +1,72 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Salsa20
 {
-    public class Salsa20
+    public static class Salsa20
     {
-        private byte[] bytesCollector;
-        private int bytesCollectorIndexCount;
+        private static byte[] key = Encoding.ASCII.GetBytes("aaaabbbbccccdddd");
+        private static byte[] nonce = Encoding.ASCII.GetBytes("iiiijjjj");
+        private static byte[] constant = Encoding.ASCII.GetBytes("expand 32-byte k");
 
-        private byte[] key;
-        private byte[] nonce;
-
-        private byte[] constant;
-
-        public EventHandler<byte[]> BytesEncripted;
-        public EventHandler<byte[]> BytesDecripted;
-
-        public Salsa20(string key, string nonce)
+        public static bool EncryptFile(string filePath)
         {
-            bytesCollector = new byte[64];
-            bytesCollectorIndexCount = 0;
+            byte[] encriptedBytes = EncryptBytes(File.ReadAllBytes(filePath));
+            string encriptedFilePath = Path.GetDirectoryName(filePath) + "/" + Path.GetFileNameWithoutExtension(filePath) + "_encripted" + Path.GetExtension(filePath);
+            File.WriteAllBytes(encriptedFilePath, encriptedBytes);
 
-            this.key = Encoding.ASCII.GetBytes(key);
-            this.nonce = Encoding.ASCII.GetBytes(nonce);
-
-            if ( key.Length != 16 && key.Length != 32)
-                throw new Exception("Key must have be 128 or 256 bits");
-            if (nonce.Length != 8)
-                throw new Exception("Nonce must have be 64 bits");
-
-            if(key.Length == 32)
-                this.constant = Encoding.ASCII.GetBytes("expand 32-byte k");
-            else
-                this.constant = Encoding.ASCII.GetBytes("expand 16-byte k");
+            return true;
         }
 
-        /// <summary>
-        /// Encrypt message of 64 bytes. At finish encrypt event BytesEncripted will be handled
-        /// </summary>
-        /// <param name="newbyte">Byte to encrypt</param>
-        public void Encrypt (byte newbyte)
+        public static bool DecryptFile(string filePath)
         {
-            bytesCollector[bytesCollectorIndexCount] = newbyte;
+            byte[] decriptedBytes = EncryptBytes(File.ReadAllBytes(filePath));
+            string decriptedFilePath = Path.GetDirectoryName(filePath) + "/" + Path.GetFileNameWithoutExtension(filePath) + "_decripted" + Path.GetExtension(filePath);
+            File.WriteAllBytes(decriptedFilePath, decriptedBytes);
 
-            if(bytesCollectorIndexCount < 63)
-                bytesCollectorIndexCount++;
-            else
+            return true;
+        }
+
+		public static string EncryptText(string text)
+		{
+			byte[] decriptedBytes = EncryptBytes(Encoding.Default.GetBytes(text));
+			return Encoding.Default.GetString(decriptedBytes);
+		}
+
+		public static string DecryptText(string text)
+		{
+			byte[] decriptedBytes = EncryptBytes(Encoding.Default.GetBytes(text));
+			return Encoding.Default.GetString(decriptedBytes);
+		}
+
+		private static byte[] EncryptBytes(byte[] bytes)
+        {
+            List<byte> encriptedBytes = new List<byte>();
+            int blocks64bits = bytes.Length / 64;
+            int blockIncompletedBits = bytes.Length % 64;
+
+            for (int i = 0; i < blocks64bits; i++)
             {
-                Encrypt(this.bytesCollector).ContinueWith(x => BytesEncripted?.Invoke(this, x.Result));
-                bytesCollector = new byte[64];
-                bytesCollectorIndexCount = 0;
-            }
-        }
+                byte[] temp = new byte[64];
+                Buffer.BlockCopy(bytes, i * 64, temp, 0, 64);
 
-        /// <summary>
-        /// Decrypt message of 64 bytes. At finish decrypt event BytesDecripted will be handled
-        /// </summary>
-        /// <param name="bytes"></param>
-        public void Decrypt(byte[] bytes)
-        {
-            Encrypt(bytes).ContinueWith(x => BytesDecripted?.Invoke(this, x.Result));
+                encriptedBytes.AddRange(Encrypt(temp));
+            }
+            if (blockIncompletedBits > 0)
+            {
+                byte[] temp = new byte[64];
+                Buffer.BlockCopy(bytes, blocks64bits * 64, temp, 0, blockIncompletedBits);
+
+                encriptedBytes.AddRange(Encrypt(temp));
+            }
+
+            return encriptedBytes.ToArray();
         }
 
         /// <summary>
@@ -70,7 +74,7 @@ namespace Salsa20
         /// </summary>
         /// <param name="bytes">Message to encrypt/decrypt</param>
         /// <returns>Task with byte array result</returns>
-        async private Task<byte[]> Encrypt(byte[] bytes)
+        private static byte[] Encrypt(byte[] bytes)
         {
             //Message to encrypt
             uint[] message = new uint[16];
@@ -109,7 +113,7 @@ namespace Salsa20
         /// Create vector with 16 positions of 32 bits words (unit uses 32 bits). 1 word = 4 bytes
         /// </summary>
         /// <returns>Word's vector</returns>
-        private uint[] Expand20()
+        private static uint[] Expand20()
         {
             uint[] vector = new uint[16];
 
@@ -144,7 +148,7 @@ namespace Salsa20
         /// </summary>
         /// <param name="vector">Vector to hash</param>
         /// <returns>Hashed vector</returns>
-        private uint[] Hash(uint[] vector)
+        private static uint[] Hash(uint[] vector)
         {
             uint[] encrypted = (uint[])vector.Clone();
 
@@ -193,7 +197,7 @@ namespace Salsa20
         /// </summary>
         /// <param name="vector">Vector to round</param>
         /// <returns>vector rounded</returns>
-        private uint[] Doubleround(uint[] vector)
+        private static uint[] Doubleround(uint[] vector)
         {
             return Rowround(Columnround(vector));
         }
@@ -208,7 +212,7 @@ namespace Salsa20
         /// </summary>
         /// <param name="vector">Vector to row-round</param>
         /// <returns>vector row-rounded</returns>
-        private uint[] Rowround(uint[] vector)
+        private static uint[] Rowround(uint[] vector)
         {
             uint[] matrixRounded = new uint[16];
             uint[] rowRounded = new uint[4];
@@ -250,7 +254,7 @@ namespace Salsa20
         /// </summary>
         /// <param name="vector">Vector to column-round</param>
         /// <returns>vector column-rounded</returns>
-        private uint[] Columnround(uint[] vector)
+        private static uint[] Columnround(uint[] vector)
         {
             uint[] matrixRounded = new uint[16];
             uint[] columnRounded = new uint[4];
@@ -295,7 +299,7 @@ namespace Salsa20
         /// <param name="c">Third word</param>
         /// <param name="d">Fourth word</param>
         /// <returns>Quarterd word</returns>
-        private uint[] Quarterround(uint a, uint b, uint c, uint d)
+        private static uint[] Quarterround(uint a, uint b, uint c, uint d)
         {
             uint[] vector = new uint[4];
             vector[1] = b ^ BinaryLeftRotation(a + d, 7);
@@ -312,7 +316,7 @@ namespace Salsa20
         /// <param name="w">word</param>
         /// <param name="a">bits to rotate</param>
         /// <returns>rotated word</returns>
-        private uint BinaryLeftRotation(uint w, int a)
+        private static uint BinaryLeftRotation(uint w, int a)
         {
             return ((w) << (a)) //Move a bits of the w
                 | ((w) >> (32 - (a))); //Copy a bits at the end of w
